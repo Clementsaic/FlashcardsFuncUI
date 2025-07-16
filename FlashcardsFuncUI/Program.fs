@@ -22,7 +22,8 @@ type Card =
     { Face: string
       Back: string
       FaceUp: bool
-      Id: int }
+      Id: int
+      LoadId: int }
 
 module Main =
 
@@ -85,7 +86,8 @@ module Main =
                     { Face = ""
                       Back = ""
                       FaceUp = true
-                      Id = id }
+                      Id = id
+                      LoadId = id }
 
             let parseCardSet (cardSet: XDocument) =
                 ([], cardSet.Root.Elements())
@@ -164,7 +166,8 @@ module Main =
                 { Face = ""
                   Back = ""
                   FaceUp = true
-                  Id = -1 }
+                  Id = -1
+                  LoadId = -1 }
 
             let flipCard (cards: Card List, id: int) =
                 if cards[id].FaceUp then tts cards[id].Back else ()
@@ -285,7 +288,7 @@ module Main =
                               )) ] ]
 
             let stateString (cards: Card List) =
-                List.foldBack (fun card ids -> $"{card.Id}.{if card.FaceUp then 0 else 1}" :: ids) cards []
+                List.foldBack (fun card ids -> $"{card.LoadId}.{if card.FaceUp then 0 else 1}" :: ids) cards []
                 |> String.concat "-"
 
             // printfn "%s" (stateString state.Current)

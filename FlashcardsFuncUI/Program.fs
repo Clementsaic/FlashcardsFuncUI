@@ -88,8 +88,8 @@ module Main =
                       Id = id }
 
             let parseCardSet (cardSet: XDocument) =
-                (cardSet.Root.Elements(), [])
-                ||> Seq.foldBack (fun element cards ->
+                ([], cardSet.Root.Elements())
+                ||> Seq.fold (fun cards element ->
                     match element with
                     | e when string e.Name = "card" -> cards @ [ (parseCard (element, List.length cards)) ] // prob not ideal but good enough for now
                     | _ -> cards)

@@ -112,14 +112,12 @@ module Main =
                     let! files =
                         (TopLevel.GetTopLevel ctx.control).StorageProvider.OpenFilePickerAsync(options)
                         |> Async.AwaitTask
-
-                    let! stream = files[0].OpenReadAsync() |> Async.AwaitTask
-
-                    let cardsXML = XDocument.Load(stream)
-
-                    let cards = parseCardSet cardsXML
-
-                    state.Set(cards)
+                    
+                    if Seq.length files = 0 then () else
+                        let! stream = files[0].OpenReadAsync() |> Async.AwaitTask
+                        let cardsXML = XDocument.Load(stream)
+                        let cards = parseCardSet cardsXML
+                        state.Set(cards)
                 }
 
             let serializeCardSet () =
@@ -154,10 +152,12 @@ module Main =
                     let! file =
                         (TopLevel.GetTopLevel ctx.control).StorageProvider.SaveFilePickerAsync(options)
                         |> Async.AwaitTask
-
-                    let! outStream = file.OpenWriteAsync() |> Async.AwaitTask
-
-                    cardsXML.Save(outStream)
+                    
+                    match file with
+                    | null -> ()
+                    | output ->
+                        let! outStream = output.OpenWriteAsync() |> Async.AwaitTask
+                        cardsXML.Save(outStream)
                 }
 
             let emptyCard =

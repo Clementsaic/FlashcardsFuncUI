@@ -222,6 +222,14 @@ module Main =
                               Button.clipToBounds false
                               Button.verticalContentAlignment VerticalAlignment.Center
                               Button.horizontalContentAlignment HorizontalAlignment.Center
+                              Button.borderThickness 5
+                              Button.borderBrush (
+                                  if card.FaceUp then
+                                      Color.FromRgb(0x7Fuy, 0x7Fuy, 0xBFuy)
+                                  else
+                                      Color.FromRgb(0xBFuy, 0x7Fuy, 0x7Fuy)
+                              )
+                              Button.cornerRadius 25
                               Button.background (
                                   if card.FaceUp then
                                       Color.FromRgb(0x7Fuy, 0x7Fuy, 0xFFuy)
@@ -264,6 +272,10 @@ module Main =
                           Button.margin 20
                           Button.verticalContentAlignment VerticalAlignment.Center
                           Button.horizontalContentAlignment HorizontalAlignment.Center
+                          Button.borderThickness 5
+                          Button.borderBrush (Color.FromRgb(0x7Fuy, 0x7Fuy, 0x7Fuy))
+                          Button.cornerRadius 25
+                          Button.background (Color.FromRgb(0x3Fuy, 0x3Fuy, 0x3Fuy))
                           Button.content "+"
                           Button.onClick (fun _ ->
                               state.Set(
@@ -281,13 +293,17 @@ module Main =
             let cardView (cards: Card List) =
                 Component.create (
                     stateString cards,
-                    fun ctx -> WrapPanel.create [ WrapPanel.children (cardButtons state.Current) ]
+                    fun ctx -> WrapPanel.create [
+                        WrapPanel.background (Color.FromRgb (0x2buy, 0x2buy, 0x2buy))
+                        WrapPanel.children (cardButtons state.Current)
+                    ]
                 )
 
             DockPanel.create
                 [ DockPanel.children
                       [ Menu.create
                             [ Menu.dock Dock.Top
+                              Menu.background (Color.FromRgb (0x20uy, 0x20uy, 0x20uy))
                               Menu.viewItems
                                   [ MenuItem.create
                                         [ MenuItem.header "Load"

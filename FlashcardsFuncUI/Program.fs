@@ -1,15 +1,22 @@
 ﻿namespace CounterApp
 
+open System.Threading
+open System.Xml.Linq
 open Avalonia
 open Avalonia.Controls.ApplicationLifetimes
-open Avalonia.Controls.Primitives
+open Avalonia.Media
+open Avalonia.Platform.Storage
 open Avalonia.Themes.Fluent
 open Avalonia.FuncUI.Hosts
 open Avalonia.Controls
 open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
 open Avalonia.Layout
+open KokoroSharp
+open Microsoft.FSharp.Collections
 open Microsoft.FSharp.Core
+open Microsoft.ML.OnnxRuntime
+open OpenTK.Audio.OpenAL
 
 type Card =
     { Face: string
@@ -19,22 +26,139 @@ type Card =
 
 module Main =
 
+    let ttsOptions = new SessionOptions()
+    ttsOptions.AppendExecutionProvider_CUDA()
+    ttsOptions.LogSeverityLevel <- OrtLoggingLevel.ORT_LOGGING_LEVEL_INFO
+
+    let ttsVoice = KokoroVoiceManager.GetVoice "ff_siwis"
+    
+    let kokoro = KokoroTTS.LoadModel("./kokoro.onnx", ttsOptions)
+
+    kokoro.SpeakFast("Text to speech initialized!", ttsVoice) |> ignore
+
+    let wavSynth =
+        new KokoroSharp.Utilities.KokoroWavSynthesizer("./kokoro.onnx", ttsOptions)
+
+    let emitSpeech (wav: byte[]) =
+        async {
+            let bufferAL = AL.GenBuffer()
+            let sourceAL = AL.GenSource()
+
+            AL.BufferData(bufferAL, ALFormat.Mono16, wav, 24000)
+            AL.Source(sourceAL, ALSourcei.Buffer, bufferAL)
+            AL.SourcePlay(sourceAL)
+
+            while (enum<ALSourceState> (AL.GetSource(sourceAL, ALGetSourcei.SourceState)) = ALSourceState.Playing) do
+                Thread.Sleep(250)
+
+            AL.SourceStop(sourceAL)
+            AL.DeleteSource(sourceAL)
+            AL.DeleteBuffer(bufferAL)
+        }
+
+
+    let tts (text) =
+        wavSynth.Synthesize(text, ttsVoice) |> emitSpeech |> Async.Start
+
     let view () =
         Component(fun ctx ->
-            let state =
-                ctx.useState
-                    [ { Face = "bruh"
-                        Back = "unchungus"
-                        FaceUp = true
-                        Id = 0 }
-                      { Face = "1"
-                        Back = "2"
-                        FaceUp = true
-                        Id = 1 }
-                      { Face = "a"
-                        Back = "b"
-                        FaceUp = true
-                        Id = 2 } ]
+            let state = ctx.useState []
+
+            let mouseState = ctx.useState (Point(0.0, 0.0))
+
+            let xmlFileType =
+                FilePickerFileType(
+                    "XML Document",
+                    Patterns = [ "*.xml" ],
+                    AppleUniformTypeIdentifiers = [ "public.xml" ],
+                    MimeTypes = [ "application/xml" ]
+                )
+
+            let parseCard (card: XElement, id: int) =
+                card.Elements()
+                |> Seq.fold
+                    (fun card element ->
+                        match element with
+                        | e when string e.Name = "face" -> { card with Face = e.Value }
+                        | e when string e.Name = "back" -> { card with Back = e.Value }
+                        | _ -> card)
+                    { Face = ""
+                      Back = ""
+                      FaceUp = true
+                      Id = id }
+
+            let parseCardSet (cardSet: XDocument) =
+                (cardSet.Root.Elements(), [])
+                ||> Seq.foldBack (fun element cards ->
+                    match element with
+                    | e when string e.Name = "card" -> cards @ [ (parseCard (element, List.length cards)) ] // prob not ideal but good enough for now
+                    | _ -> cards)
+
+            let loadCardSet () =
+                async {
+                    let! docs =
+                        (TopLevel.GetTopLevel ctx.control)
+                            .StorageProvider.TryGetWellKnownFolderAsync(WellKnownFolder.Documents)
+                        |> Async.AwaitTask
+
+                    let options =
+                        FilePickerOpenOptions(
+                            Title = "Select Card Set",
+                            SuggestedStartLocation = docs,
+                            AllowMultiple = false,
+                            FileTypeFilter = [ xmlFileType ]
+                        )
+
+                    let! files =
+                        (TopLevel.GetTopLevel ctx.control).StorageProvider.OpenFilePickerAsync(options)
+                        |> Async.AwaitTask
+
+                    let! stream = files[0].OpenReadAsync() |> Async.AwaitTask
+
+                    let cardsXML = XDocument.Load(stream)
+
+                    let cards = parseCardSet cardsXML
+
+                    state.Set(cards)
+                }
+
+            let serializeCardSet () =
+                XDocument(
+                    XElement(
+                        "cards",
+                        (state.Current, [])
+                        ||> Seq.foldBack (fun card cardsXML ->
+                            XElement("card", [ XElement("face", card.Face); XElement("back", card.Back) ])
+                            :: cardsXML)
+                    )
+                )
+
+
+            let saveCardSet () =
+                async {
+                    let cardsXML = serializeCardSet ()
+
+                    let! docs =
+                        (TopLevel.GetTopLevel ctx.control)
+                            .StorageProvider.TryGetWellKnownFolderAsync(WellKnownFolder.Documents)
+                        |> Async.AwaitTask
+
+                    let options =
+                        FilePickerSaveOptions(
+                            Title = "Save Card Set",
+                            SuggestedStartLocation = docs,
+                            ShowOverwritePrompt = true,
+                            FileTypeChoices = [ xmlFileType ]
+                        )
+
+                    let! file =
+                        (TopLevel.GetTopLevel ctx.control).StorageProvider.SaveFilePickerAsync(options)
+                        |> Async.AwaitTask
+
+                    let! outStream = file.OpenWriteAsync() |> Async.AwaitTask
+
+                    cardsXML.Save(outStream)
+                }
 
             let emptyCard =
                 { Face = ""
@@ -43,6 +167,8 @@ module Main =
                   Id = -1 }
 
             let flipCard (cards: Card List, id: int) =
+                if cards[id].FaceUp then tts cards[id].Back else ()
+
                 List.foldBack
                     (fun card cardsUpdated ->
                         { card with
@@ -50,9 +176,6 @@ module Main =
                         :: cardsUpdated)
                     cards
                     []
-
-            let setAllCards (cards: Card List, faceUp: bool) =
-                List.foldBack (fun card cardsUpdated -> { card with FaceUp = faceUp } :: cardsUpdated) cards []
 
             let deleteCard (cards: Card List, id: int) =
                 List.foldBack
@@ -66,17 +189,69 @@ module Main =
                     cards
                     []
 
+            let swapCards (cards: Card List, id1: int, id2: int) =
+                List.foldBack
+                    (fun card cardsUpdated ->
+                        match card.Id with
+                        | id when id = id1 -> cards[id2]
+                        | id when id = id2 -> cards[id1]
+                        | _ -> card
+                        :: cardsUpdated)
+                    cards
+                    []
+
+            let setAllCards (cards: Card List, faceUp: bool) =
+                List.foldBack (fun card cardsUpdated -> { card with FaceUp = faceUp } :: cardsUpdated) cards []
+
+            let shuffleCards (cards: Card List) =
+                (List.randomShuffle cards)
+                |> List.fold
+                    (fun cardsUpdated card ->
+                        cardsUpdated
+                        @ [ { card with
+                                Id = List.length cardsUpdated } ])
+                    []
+
             let cardButtons (cards: Card List) : Types.IView List =
                 (List.foldBack
                     (fun card views ->
                         Button.create
-                            [ Button.width 500
-                              Button.height 300
+                            [ Button.width 250
+                              Button.height 150
                               Button.margin 20
+                              Button.clipToBounds false
                               Button.verticalContentAlignment VerticalAlignment.Center
                               Button.horizontalContentAlignment HorizontalAlignment.Center
-                              Button.content (if card.FaceUp then card.Face else card.Back)
+                              Button.background (
+                                  if card.FaceUp then
+                                      Color.FromRgb(0x7Fuy, 0x7Fuy, 0xFFuy)
+                                  else
+                                      Color.FromRgb(0xFFuy, 0x7Fuy, 0x7Fuy)
+                              )
+                              Button.content (
+                                  TextBlock.create
+                                      [ TextBlock.textWrapping TextWrapping.Wrap
+                                        TextBlock.fontSize 24
+                                        TextBlock.textAlignment TextAlignment.Center
+                                        TextBlock.text (if card.FaceUp then card.Face else card.Back) ]
+                              )
                               Button.onClick (fun _ -> state.Set(flipCard (state.Current, card.Id)))
+                              Button.onPointerPressed (fun args -> mouseState.Set(args.GetPosition ctx.control))
+                              Button.onPointerMoved (fun args ->
+                                  let pos = args.GetPosition ctx.control
+
+                                  let offset =
+                                      pos
+                                      - (if args.Properties.IsLeftButtonPressed then
+                                             mouseState.Current
+                                         else
+                                             pos)
+
+                                  (args.Source :?> Visual).RenderTransform <- TranslateTransform(offset.X, offset.Y)
+
+                                  args.Handled <- true)
+                              Button.onPointerReleased (fun args ->
+                                  (args.Source :?> Visual).RenderTransform <- TranslateTransform(0.0, 0.0))
                               Button.onContextRequested (fun args ->
                                   state.Set(deleteCard (state.Current, card.Id))
                                   args.Handled <- true) ]
@@ -84,8 +259,8 @@ module Main =
                     cards
                     [])
                 @ [ Button.create
-                        [ Button.width 500
-                          Button.height 300
+                        [ Button.width 250
+                          Button.height 150
                           Button.margin 20
                           Button.verticalContentAlignment VerticalAlignment.Center
                           Button.horizontalContentAlignment HorizontalAlignment.Center
@@ -114,8 +289,12 @@ module Main =
                       [ Menu.create
                             [ Menu.dock Dock.Top
                               Menu.viewItems
-                                  [ MenuItem.create [ MenuItem.header "Load" ]
-                                    MenuItem.create [ MenuItem.header "Save" ]
+                                  [ MenuItem.create
+                                        [ MenuItem.header "Load"
+                                          MenuItem.onClick (fun _ -> loadCardSet () |> Async.StartImmediate) ]
+                                    MenuItem.create
+                                        [ MenuItem.header "Save"
+                                          MenuItem.onClick (fun _ -> saveCardSet () |> Async.StartImmediate) ]
                                     MenuItem.create
                                         [ MenuItem.header "FaceUp"
                                           MenuItem.onClick (fun _ -> state.Set(setAllCards (state.Current, true))) ]
@@ -124,75 +303,9 @@ module Main =
                                           MenuItem.onClick (fun _ -> state.Set(setAllCards (state.Current, false))) ]
                                     MenuItem.create
                                         [ MenuItem.header "Shuffle"
-                                          MenuItem.onClick (fun _ -> state.Set(List.randomShuffle state.Current)) ] ] ]
-                        ContentControl.create [ ContentControl.content (cardView state.Current) ] ] ]
-
-        // UniformGrid.create [
-        //     UniformGrid.rows (fun _ -> (int ctx.control.Width % 400))
-        //     UniformGrid.columns 4
-        //     UniformGrid.name "chungus"
-        //     UniformGrid.children [
-        //         TextBox.create [  ]
-        //         TextBox.create [  ]
-        //         TextBox.create [  ]
-        //         TextBox.create [  ]
-        //         TextBox.create [  ]
-        //         TextBox.create [  ]
-        //         TextBox.create [  ]
-        //     ]
-        // ]
-        // bruh
-        // Grid.create [
-        //     Grid.rowDefinitions "Auto, Auto, Auto"
-        //     Grid.columnDefinitions "Auto, Auto, Auto"
-        //     Grid.children [
-        //         Button.create [
-        //             Button.row 0
-        //             Button.column 0
-        //             Button.onClick (fun _ -> state.Set(state.Current + 1))
-        //             Button.content "bruh"
-        //         ]
-        //         Button.create [
-        //             Button.row 0
-        //             Button.column 1
-        //             Button.onClick (fun _ -> state.Set(state.Current + 1))
-        //             Button.content "bruv"
-        //         ]
-        //         Button.create [
-        //             Button.row 1
-        //             Button.column 0
-        //             Button.onClick (fun _ -> state.Set(state.Current + 1))
-        //             Button.content "brugg"
-        //         ]
-        //     ]
-        // ]
-        // bruv
-        // DockPanel.create [
-        //     DockPanel.children [
-        //         Button.create [
-        //             Button.dock Dock.Bottom
-        //             Button.onClick (fun _ -> state.Set(state.Current - 1))
-        //             Button.content "-"
-        //             Button.horizontalAlignment HorizontalAlignment.Stretch
-        //             Button.horizontalContentAlignment HorizontalAlignment.Center
-        //         ]
-        //         Button.create [
-        //             Button.dock Dock.Bottom
-        //             Button.onClick (fun _ -> state.Set(state.Current + 1))
-        //             Button.content "+"
-        //             Button.horizontalAlignment HorizontalAlignment.Stretch
-        //             Button.horizontalContentAlignment HorizontalAlignment.Center
-        //         ]
-        //         TextBlock.create [
-        //             TextBlock.dock Dock.Top
-        //             TextBlock.fontSize 48.0
-        //             TextBlock.verticalAlignment VerticalAlignment.Center
-        //             TextBlock.horizontalAlignment HorizontalAlignment.Center
-        //             TextBlock.text (string state.Current)
-        //         ]
-        //     ]
-        // ]
-        )
+                                          MenuItem.onClick (fun _ ->
+                                              state.Set(setAllCards (shuffleCards state.Current, true))) ] ] ]
+                        ContentControl.create [ ContentControl.content (cardView state.Current) ] ] ])
 
 type MainWindow() =
     inherit HostWindow()

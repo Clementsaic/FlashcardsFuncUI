@@ -13,15 +13,21 @@ open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
 open Avalonia.Layout
 open KokoroSharp
+open KokoroSharp.Core
 open Microsoft.FSharp.Collections
 open Microsoft.FSharp.Core
 open Microsoft.ML.OnnxRuntime
 open OpenTK.Audio.OpenAL
 
+type TTSHint =
+    { FaceHint: KokoroVoice * string
+      BackHint: KokoroVoice * string }
+
 type Card =
     { Face: string
       Back: string
       FaceUp: bool
+      TtsHint: TTSHint
       Id: int
       LoadId: int }
 
@@ -31,11 +37,12 @@ module Main =
     ttsOptions.AppendExecutionProvider_CUDA()
     ttsOptions.LogSeverityLevel <- OrtLoggingLevel.ORT_LOGGING_LEVEL_INFO
 
-    let ttsVoice = KokoroVoiceManager.GetVoice "ff_siwis"
-    
+    let ttsVoice1 = KokoroVoiceManager.GetVoice "ff_siwis"
+    let ttsVoice2 = KokoroVoiceManager.GetVoice "af_heart"
+
     let kokoro = KokoroTTS.LoadModel("./kokoro.onnx", ttsOptions)
 
-    kokoro.SpeakFast("Text to speech initialized!", ttsVoice) |> ignore
+    kokoro.SpeakFast("Text to speech initialized!", ttsVoice1) |> ignore
 
     let wavSynth =
         new KokoroSharp.Utilities.KokoroWavSynthesizer("./kokoro.onnx", ttsOptions)
@@ -58,8 +65,21 @@ module Main =
         }
 
 
-    let tts (text) =
-        wavSynth.Synthesize(text, ttsVoice) |> emitSpeech |> Async.Start
+    let tts (text: string, voice: KokoroVoice) =
+        if text.Length = 0 then
+            ()
+        else
+            wavSynth.Synthesize(text, voice) |> emitSpeech |> Async.Start
+
+    let pickVoice (iso639_1: string) =
+        match iso639_1 with
+        | _ when iso639_1 = "fr" -> KokoroVoiceManager.GetVoice "ff_siwis"
+        | _ when iso639_1 = "en" || iso639_1 = "en-us" -> KokoroVoiceManager.GetVoice "af_heart"
+        | _ when iso639_1 = "en-gb" -> KokoroVoiceManager.GetVoice "bf_alice"
+        | _ when iso639_1 = "it" -> KokoroVoiceManager.GetVoice "if_sara"
+        | _ when iso639_1 = "ja" -> KokoroVoiceManager.GetVoice "jf_nezumi"
+        | _ when iso639_1 = "zh-tw" || iso639_1 = "zh-cn" -> KokoroVoiceManager.GetVoice "zf_xiaobei"
+        | _ -> KokoroVoiceManager.GetVoice "af_heart"
 
     let view () =
         Component(fun ctx ->
@@ -75,17 +95,75 @@ module Main =
                     MimeTypes = [ "application/xml" ]
                 )
 
+            let parsePronunciation (pronunciation: XElement, card: Card) =
+                pronunciation.Elements()
+                |> Seq.fold
+                    (fun card element ->
+                        match element with
+                        | e when string e.Name = "face" ->
+                            e.Attributes()
+                            |> Seq.fold
+                                (fun card attribute ->
+                                    match attribute with
+                                    | a when string a.Name = "lang" ->
+                                        { card with
+                                            TtsHint.FaceHint =
+                                                (pickVoice (a.Value),
+                                                 if e.IsEmpty || String.length e.Value = 0 then
+                                                     snd card.TtsHint.FaceHint
+                                                 else
+                                                     e.Value) }
+                                    | _ -> card)
+                                card
+                        | e when string e.Name = "back" ->
+                            e.Attributes()
+                            |> Seq.fold
+                                (fun card attribute ->
+                                    match attribute with
+                                    | a when string a.Name = "lang" ->
+                                        { card with
+                                            TtsHint.BackHint =
+                                                (pickVoice (a.Value),
+                                                 if e.IsEmpty || String.length e.Value = 0 then
+                                                     snd card.TtsHint.BackHint
+                                                 else
+                                                     e.Value) }
+                                    | _ -> card)
+                                card
+                        | _ -> card)
+                    card
+
             let parseCard (card: XElement, id: int) =
                 card.Elements()
                 |> Seq.fold
                     (fun card element ->
                         match element with
-                        | e when string e.Name = "face" -> { card with Face = e.Value }
-                        | e when string e.Name = "back" -> { card with Back = e.Value }
+                        | e when string e.Name = "face" ->
+                            { card with
+                                Face = e.Value
+                                TtsHint.FaceHint =
+                                    (fst card.TtsHint.FaceHint,
+                                     if (snd card.TtsHint.FaceHint).Length = 0 then
+                                         e.Value
+                                     else
+                                         snd card.TtsHint.FaceHint) }
+                        | e when string e.Name = "back" ->
+                            { card with
+                                Back = e.Value
+                                TtsHint.BackHint =
+                                    (fst card.TtsHint.BackHint,
+                                     if (snd card.TtsHint.BackHint).Length = 0 then
+                                         e.Value
+                                     else
+                                         snd card.TtsHint.BackHint) }
+                        | e when string e.Name = "pronunciation" -> parsePronunciation (e, card)
                         | _ -> card)
                     { Face = ""
                       Back = ""
                       FaceUp = true
+                      TtsHint =
+                        { FaceHint = (ttsVoice2, "")
+                          BackHint = (ttsVoice1, "") }
                       Id = id
                       LoadId = id }
 
@@ -114,8 +192,10 @@ module Main =
                     let! files =
                         (TopLevel.GetTopLevel ctx.control).StorageProvider.OpenFilePickerAsync(options)
                         |> Async.AwaitTask
-                    
-                    if Seq.length files = 0 then () else
+
+                    if Seq.length files = 0 then
+                        ()
+                    else
                         let! stream = files[0].OpenReadAsync() |> Async.AwaitTask
                         let cardsXML = XDocument.Load(stream)
                         let cards = parseCardSet cardsXML
@@ -154,7 +234,7 @@ module Main =
                     let! file =
                         (TopLevel.GetTopLevel ctx.control).StorageProvider.SaveFilePickerAsync(options)
                         |> Async.AwaitTask
-                    
+
                     match file with
                     | null -> ()
                     | output ->
@@ -166,11 +246,17 @@ module Main =
                 { Face = ""
                   Back = ""
                   FaceUp = true
+                  TtsHint =
+                    { FaceHint = (ttsVoice2, "")
+                      BackHint = (ttsVoice1, "") }
                   Id = -1
                   LoadId = -1 }
 
             let flipCard (cards: Card List, id: int) =
-                if cards[id].FaceUp then tts cards[id].Back else ()
+                if cards[id].FaceUp then
+                    tts (snd cards[id].TtsHint.BackHint, fst cards[id].TtsHint.BackHint)
+                else
+                    tts (snd cards[id].TtsHint.FaceHint, fst cards[id].TtsHint.FaceHint)
 
                 List.foldBack
                     (fun card cardsUpdated ->
@@ -296,17 +382,17 @@ module Main =
             let cardView (cards: Card List) =
                 Component.create (
                     stateString cards,
-                    fun ctx -> WrapPanel.create [
-                        WrapPanel.background (Color.FromRgb (0x2buy, 0x2buy, 0x2buy))
-                        WrapPanel.children (cardButtons state.Current)
-                    ]
+                    fun ctx ->
+                        WrapPanel.create
+                            [ WrapPanel.background (Color.FromRgb(0x2buy, 0x2buy, 0x2buy))
+                              WrapPanel.children (cardButtons state.Current) ]
                 )
 
             DockPanel.create
                 [ DockPanel.children
                       [ Menu.create
                             [ Menu.dock Dock.Top
-                              Menu.background (Color.FromRgb (0x20uy, 0x20uy, 0x20uy))
+                              Menu.background (Color.FromRgb(0x20uy, 0x20uy, 0x20uy))
                               Menu.viewItems
                                   [ MenuItem.create
                                         [ MenuItem.header "Load"

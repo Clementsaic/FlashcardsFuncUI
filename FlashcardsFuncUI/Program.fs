@@ -110,7 +110,7 @@ module Main =
                                             TtsHint.FaceHint =
                                                 (pickVoice (a.Value),
                                                  if e.IsEmpty || String.length e.Value = 0 then
-                                                     snd card.TtsHint.FaceHint
+                                                     card.Face
                                                  else
                                                      e.Value) }
                                     | _ -> card)
@@ -125,7 +125,7 @@ module Main =
                                             TtsHint.BackHint =
                                                 (pickVoice (a.Value),
                                                  if e.IsEmpty || String.length e.Value = 0 then
-                                                     snd card.TtsHint.BackHint
+                                                     card.Back
                                                  else
                                                      e.Value) }
                                     | _ -> card)
@@ -138,24 +138,8 @@ module Main =
                 |> Seq.fold
                     (fun card element ->
                         match element with
-                        | e when string e.Name = "face" ->
-                            { card with
-                                Face = e.Value
-                                TtsHint.FaceHint =
-                                    (fst card.TtsHint.FaceHint,
-                                     if (snd card.TtsHint.FaceHint).Length = 0 then
-                                         e.Value
-                                     else
-                                         snd card.TtsHint.FaceHint) }
-                        | e when string e.Name = "back" ->
-                            { card with
-                                Back = e.Value
-                                TtsHint.BackHint =
-                                    (fst card.TtsHint.BackHint,
-                                     if (snd card.TtsHint.BackHint).Length = 0 then
-                                         e.Value
-                                     else
-                                         snd card.TtsHint.BackHint) }
+                        | e when string e.Name = "face" -> { card with Face = e.Value }
+                        | e when string e.Name = "back" -> { card with Back = e.Value }
                         | e when string e.Name = "pronunciation" -> parsePronunciation (e, card)
                         | _ -> card)
                     { Face = ""

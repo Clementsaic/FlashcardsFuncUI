@@ -108,7 +108,7 @@ module Main =
                                     | a when string a.Name = "lang" ->
                                         { card with
                                             TtsHint.FaceHint =
-                                                (pickVoice (a.Value),
+                                                (pickVoice a.Value,
                                                  if e.IsEmpty || String.length e.Value = 0 then
                                                      card.Face
                                                  else
@@ -123,7 +123,7 @@ module Main =
                                     | a when string a.Name = "lang" ->
                                         { card with
                                             TtsHint.BackHint =
-                                                (pickVoice (a.Value),
+                                                (pickVoice a.Value,
                                                  if e.IsEmpty || String.length e.Value = 0 then
                                                      card.Back
                                                  else
@@ -366,7 +366,7 @@ module Main =
             let cardView (cards: Card List) =
                 Component.create (
                     stateString cards,
-                    fun ctx ->
+                    fun _ ->
                         WrapPanel.create
                             [ WrapPanel.background (Color.FromRgb(0x2buy, 0x2buy, 0x2buy))
                               WrapPanel.children (cardButtons state.Current) ]

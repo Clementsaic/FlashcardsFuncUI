@@ -14,7 +14,12 @@ The only GUI software I'd made any attempt to use properly before was [Avalonia]
 - [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit)
 - [cuDNN](https://developer.nvidia.com/cudnn)
 - Make sure your system can see the libraries provided by the two prereqs above
+- I think you also need a CUDA compatible GPU? Which actually is really bad lol, I should probably make the GPU accelerated stuff opt-in.
 - I think NuGet probably handles everything else, idk though cause I don't use .net stuff much
+
+## Cool libraries I used
+- [FuncUI](https://github.com/fsprojects/Avalonia.FuncUI): Allows me to use [Avalonia](https://github.com/AvaloniaUI/Avalonia) in a slightly more F#ish manner
+- [KokoroSharp](https://github.com/Lyrcaxis/KokoroSharp): Lets me use [Kokoro-TTS](https://huggingface.co/spaces/hexgrad/Kokoro-TTS) in .NET, pretty fun stuff.
 
 ## XML Schema
 Since I haven't implemented an 'edit' function yet (which means the 'add card' feature I did implement is pretty useless, lol), to make card sets you'll need to write them up in xml. Fortunately, this is pretty easy. Here is an example of a valid card set XML file:
@@ -45,3 +50,10 @@ Since I haven't implemented an 'edit' function yet (which means the 'add card' f
   </card>
 </cards>
 ```
+
+## Final notes
+I have only tested this on a single computer running Ubuntu 24.04, I *think* because of the .NET-ness it should run on other OSs as well, but although I could test that hypothesis I don't really have the time or motivation for it. If you encounter any OS-related problems though do let me know and I will try to fix it.
+
+Also if you have any suggestions feel free to open up an issue with the suggestion, I like those. Even the ones that say "ur code is bad fix it", as long as they tell me why.
+
+kthxbye

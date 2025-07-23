@@ -66,10 +66,18 @@ module Main =
 
 
     let tts (text: string, voice: KokoroVoice) =
-        if text.Length = 0 then
-            ()
-        else
-            wavSynth.Synthesize(text, voice) |> emitSpeech |> Async.Start
+        async {
+            if text.Length = 0 then
+                ()
+            else
+                text.Split ';'
+                |> Seq.fold
+                    (fun _ text ->
+                        wavSynth.Synthesize(text.TrimStart(), voice)
+                        |> emitSpeech
+                        |> Async.RunSynchronously)
+                    ()
+        }
 
     let pickVoice (iso639_1: string) =
         match iso639_1 with
@@ -239,8 +247,10 @@ module Main =
             let flipCard (cards: Card List, id: int) =
                 if cards[id].FaceUp then
                     tts (snd cards[id].TtsHint.BackHint, fst cards[id].TtsHint.BackHint)
+                    |> Async.Start
                 else
                     tts (snd cards[id].TtsHint.FaceHint, fst cards[id].TtsHint.FaceHint)
+                    |> Async.Start
 
                 List.foldBack
                     (fun card cardsUpdated ->

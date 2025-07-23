@@ -91,6 +91,12 @@ module Main =
         | _ when iso639_1 = "pt-br" -> KokoroVoiceManager.GetVoice "pf_dora"
         | _ when iso639_1 = "zh-tw" || iso639_1 = "zh-cn" -> KokoroVoiceManager.GetVoice "zf_xiaobei"
         | _ -> KokoroVoiceManager.GetVoice "af_heart"
+    
+    let elemName (element : XElement) =
+        string element.Name.LocalName
+    
+    let attrName (attribute : XAttribute) =
+        string attribute.Name.LocalName
 
     let view () =
         Component(fun ctx ->
@@ -111,12 +117,12 @@ module Main =
                 |> Seq.fold
                     (fun card element ->
                         match element with
-                        | e when string e.Name = "face" ->
+                        | e when elemName e = "face" ->
                             e.Attributes()
                             |> Seq.fold
                                 (fun card attribute ->
                                     match attribute with
-                                    | a when string a.Name = "lang" ->
+                                    | a when attrName a = "lang" ->
                                         { card with
                                             TtsHint.FaceHint =
                                                 (pickVoice a.Value,
@@ -126,12 +132,12 @@ module Main =
                                                      e.Value) }
                                     | _ -> card)
                                 card
-                        | e when string e.Name = "back" ->
+                        | e when elemName e = "back" ->
                             e.Attributes()
                             |> Seq.fold
                                 (fun card attribute ->
                                     match attribute with
-                                    | a when string a.Name = "lang" ->
+                                    | a when attrName a = "lang" ->
                                         { card with
                                             TtsHint.BackHint =
                                                 (pickVoice a.Value,
@@ -149,9 +155,9 @@ module Main =
                 |> Seq.fold
                     (fun card element ->
                         match element with
-                        | e when string e.Name = "face" -> { card with Face = e.Value }
-                        | e when string e.Name = "back" -> { card with Back = e.Value }
-                        | e when string e.Name = "pronunciation" -> parsePronunciation (e, card)
+                        | e when elemName e = "face" -> { card with Face = e.Value }
+                        | e when elemName e = "back" -> { card with Back = e.Value }
+                        | e when elemName e = "pronunciation" -> parsePronunciation (e, card)
                         | _ -> card)
                     { Face = ""
                       Back = ""
@@ -166,7 +172,7 @@ module Main =
                 ([], cardSet.Root.Elements())
                 ||> Seq.fold (fun cards element ->
                     match element with
-                    | e when string e.Name = "card" -> cards @ [ (parseCard (element, List.length cards)) ] // prob not ideal but good enough for now
+                    | e when elemName e = "card" -> cards @ [ (parseCard (element, List.length cards)) ] // prob not ideal but good enough for now
                     | _ -> cards)
 
             let loadCardSet () =

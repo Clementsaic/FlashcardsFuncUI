@@ -7,8 +7,9 @@ The only GUI software I'd made any attempt to use properly before was [Avalonia]
 - Shuffle button randomly orders cards
 - Save and load card sets as XML files
 - Cards can make use of text to speech when flipped
-  - Supported languages for TTS include English, French, Italian, Japanese, and Chinese
+  - Supported languages for TTS include English, Spanish, French, Hindi, Italian, Japanese, Brazilian Portuguese, and Chinese
   - I've only tested the English and French TTS, doesn't seem to get every word correct so definitely be careful with this feature!
+  - There's definitely some oddness with my limited testing on Japanese, probably an issue with the tokenizer if I had to guess
 
 ## Prerequisites
 - [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit)

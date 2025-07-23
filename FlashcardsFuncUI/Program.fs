@@ -81,11 +81,14 @@ module Main =
 
     let pickVoice (iso639_1: string) =
         match iso639_1 with
-        | _ when iso639_1 = "fr" -> KokoroVoiceManager.GetVoice "ff_siwis"
         | _ when iso639_1 = "en" || iso639_1 = "en-us" -> KokoroVoiceManager.GetVoice "af_heart"
-        | _ when iso639_1 = "en-gb" -> KokoroVoiceManager.GetVoice "bf_alice"
+        | _ when iso639_1 = "en-gb" -> KokoroVoiceManager.GetVoice "bf_emma"
+        | _ when iso639_1 = "es" -> KokoroVoiceManager.GetVoice "ef_dora"
+        | _ when iso639_1 = "fr" -> KokoroVoiceManager.GetVoice "ff_siwis"
+        | _ when iso639_1 = "hi" -> KokoroVoiceManager.GetVoice "hf_alpha"
         | _ when iso639_1 = "it" -> KokoroVoiceManager.GetVoice "if_sara"
-        | _ when iso639_1 = "ja" -> KokoroVoiceManager.GetVoice "jf_nezumi"
+        | _ when iso639_1 = "ja" -> KokoroVoiceManager.GetVoice "jf_alpha"
+        | _ when iso639_1 = "pt-br" -> KokoroVoiceManager.GetVoice "pf_dora"
         | _ when iso639_1 = "zh-tw" || iso639_1 = "zh-cn" -> KokoroVoiceManager.GetVoice "zf_xiaobei"
         | _ -> KokoroVoiceManager.GetVoice "af_heart"
 

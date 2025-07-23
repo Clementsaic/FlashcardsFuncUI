@@ -19,7 +19,7 @@ The only GUI software I'd made any attempt to use properly before was [Avalonia]
 
 ## Cool libraries I used
 - [FuncUI](https://github.com/fsprojects/Avalonia.FuncUI): Allows me to use [Avalonia](https://github.com/AvaloniaUI/Avalonia) in a slightly more F#ish manner
-- [KokoroSharp](https://github.com/Lyrcaxis/KokoroSharp): Lets me use [Kokoro-TTS](https://huggingface.co/spaces/hexgrad/Kokoro-TTS) in .NET, pretty fun stuff.
+- [KokoroSharp](https://github.com/Lyrcaxis/KokoroSharp): Lets me use [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) for TTS in .NET, pretty fun stuff.
 
 ## XML Schema
 Since I haven't implemented an 'edit' function yet (which means the 'add card' feature I did implement is pretty useless, lol), to make card sets you'll need to write them up in xml. Fortunately, this is pretty easy. Here is an example of a valid card set XML file:

@@ -23,7 +23,7 @@ The only GUI software I'd made any attempt to use properly before was [Avalonia]
 - [KokoroSharp](https://github.com/Lyrcaxis/KokoroSharp): Lets me use [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) for TTS in .NET, pretty fun stuff.
 
 ## XML Schema
-Since I haven't implemented an 'edit' function yet (which means the 'add card' feature I did implement is pretty useless, lol), to make card sets you'll need to write them up in xml. Fortunately, this is pretty easy. Here is an example of a valid card set XML file:
+The XML Schema can be viewed [here](https://clementsaic.github.io/xml/flashcards.xsd). Since I haven't implemented an 'edit' function yet (which means the 'add card' feature I did implement is pretty useless, lol), to make card sets you'll need to write them up in xml. Fortunately, this is pretty easy. Here is an example of a valid card set XML file:
 
 ```xml
 ﻿<?xml version="1.0" encoding="utf-8"?>
